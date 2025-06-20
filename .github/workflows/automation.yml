@@ -1,167 +1,250 @@
-name: Daily Stock Alerts
+name: Stock News Korean Translation System
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 22 * * *'    # 매일 한국시간 07:00 (UTC 22:00)
-    - cron: '30 8 * * *'    # 매일 한국시간 17:30 (UTC 08:30)
+    - cron: '0 22 * * *'      # 매일 07:00 KST (공포탐욕지수)
+    - cron: '0 */3 * * *'     # 3시간마다 (종목 뉴스)
 
 jobs:
-  morning-fear-greed:
+  # 매일 아침 7시 - 미국 주식 공포탐욕지수만
+  morning-us-fear-greed:
     runs-on: ubuntu-latest
     if: github.event.schedule == '0 22 * * *' || github.event_name == 'workflow_dispatch'
     
     steps:
-    - name: Send Fear Greed Index
+    - name: Send US Stock Fear Greed Index Only
       run: |
-        echo "공포탐욕지수 전송 시작"
+        echo "미국 주식 공포탐욕지수 전송 시작"
         
-        # CNN API에서 데이터 가져오기
-        cnn_data=$(curl -s "https://production.dataviz.cnn.io/index/fearandgreed/graphdata")
+        # CNN 미국 주식 공포탐욕지수만 시도 (암호화폐 제외)
+        us_stock_image_urls=(
+          "https://production.dataviz.cnn.io/index/fearandgreed/chart"
+          "https://en.macromicro.me/charts/50108/cnn-fear-and-greed.png"
+        )
         
-        if [ ! -z "$cnn_data" ] && echo "$cnn_data" | grep -q "fear_and_greed"; then
-          fear_greed_score=$(echo "$cnn_data" | grep -o '"score":[0-9]*' | head -1 | cut -d':' -f2)
-          fear_greed_rating=$(echo "$cnn_data" | grep -o '"rating":"[^"]*' | head -1 | cut -d'"' -f4)
+        success=false
+        
+        for url in "${us_stock_image_urls[@]}"; do
+          echo "미국 주식 공포탐욕지수 이미지 시도: $url"
           
-          case "$fear_greed_rating" in
-            "Extreme Fear") korean_rating="극도의 공포" ;;
-            "Fear") korean_rating="공포" ;;
-            "Neutral") korean_rating="중립" ;;
-            "Greed") korean_rating="탐욕" ;;
-            "Extreme Greed") korean_rating="극도의 탐욕" ;;
-            *) korean_rating="중립" ;;
-          esac
-        else
-          fear_greed_score="50"
-          korean_rating="중립"
-        fi
+          response=$(curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendPhoto" \
+            -F "chat_id=${{ secrets.CHAT_ID }}" \
+            -F "photo=$url" \
+            -F "caption=📊 CNN 미국 주식시장 공포탐욕지수
+
+          💡 투자 가이드:
+          😱 0-24: 극도의 공포 (매수 기회)
+          😰 25-49: 공포 (신중한 매수)
+          🤑 50-74: 탐욕 (신중한 매도)
+          🤯 75-100: 극도의 탐욕 (매도 고려)
+          
+          📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 07:00 KST')
+          
+          🔗 실시간 확인: https://www.cnn.com/markets/fear-and-greed")
+          
+          if echo "$response" | grep -q '"ok":true'; then
+            echo "✅ 미국 주식 공포탐욕지수 이미지 전송 성공"
+            success=true
+            break
+          else
+            echo "❌ 이미지 전송 실패: $url"
+          fi
+        done
         
-        if [ "$fear_greed_score" -le 24 ]; then
-          emoji="😱"
-        elif [ "$fear_greed_score" -le 49 ]; then
-          emoji="😰"
-        elif [ "$fear_greed_score" -le 74 ]; then
-          emoji="🤑"
-        else
-          emoji="🤯"
+        # 이미지 실패 시 텍스트로 전송 (미국 주식 전용 안내)
+        if [ "$success" = false ]; then
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.CHAT_ID }}" \
+            -d "text=📊 CNN 미국 주식시장 공포탐욕지수
+
+          💡 투자 가이드:
+          😱 0-24: 극도의 공포 (매수 기회)
+          😰 25-49: 공포 (신중한 매수)
+          🤑 50-74: 탐욕 (신중한 매도)
+          🤯 75-100: 극도의 탐욕 (매도 고려)
+          
+          📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 07:00 KST')
+          
+          🔗 실시간 확인: https://www.cnn.com/markets/fear-and-greed
+          📊 차트 이미지: https://production.dataviz.cnn.io/index/fearandgreed/chart
+          
+          ⚠️ 이미지 전송 실패로 링크에서 직접 확인해주세요"
         fi
-        
-        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-          -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=${emoji} 오늘의 미국 주식 공포탐욕지수
 
-        📊 현재 지수: ${fear_greed_score}/100 (${korean_rating})
-
-        💡 간단 가이드:
-        😱 0-24: 극도의 공포 (매수 기회)
-        😰 25-49: 공포 (신중한 매수)
-        🤑 50-74: 탐욕 (신중한 매도)  
-        🤯 75-100: 극도의 탐욕 (매도 고려)
-
-        🔗 상세 차트: https://www.cnn.com/markets/fear-and-greed
-
-        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
-
-  evening-technical-analysis:
+  # 3시간마다 - 종목 뉴스 한국어 번역
+  korean-translated-news:
     runs-on: ubuntu-latest
-    if: github.event.schedule == '30 8 * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule == '0 */3 * * *' || github.event_name == 'workflow_dispatch'
     
     steps:
-    - name: Send Technical Analysis Summary
+    - name: Get News and Translate to Korean
       run: |
-        echo "기술적 분석 요약 전송 시작"
+        echo "종목 뉴스 확인 및 한국어 번역 시작"
         
-        # 현재 시간
-        current_time=$(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
+        # 종목 리스트
+        declare -A stocks=(
+          ["CRCL"]="Circle Internet Group"
+          ["OSCR"]="Oscar Health"
+          ["ARQQ"]="Arqit Quantum"
+          ["BTM"]="Bitcoin Depot"
+          ["CRWV"]="CoreWeave"
+          ["GLXY"]="Galaxy Digital"
+          ["NBIS"]="Nebius Group"
+          ["TSLA"]="Tesla"
+          ["OKLO"]="Oklo"
+          ["MRVL"]="Marvell Technology"
+          ["PLTR"]="Palantir"
+          ["AEVA"]="Aeva Technologies"
+        )
         
-        # 기술적 분석 요약 메시지
+        # 간단한 영어-한국어 번역 함수
+        translate_to_korean() {
+          local english_text="$1"
+          
+          # 기본적인 단어 번역 (패턴 매칭)
+          korean_text="$english_text"
+          
+          # 일반적인 주식 용어 번역
+          korean_text=$(echo "$korean_text" | sed 's/\bstock\b/주식/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bshares\b/주식/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bearnings\b/실적/g')
+          korean_text=$(echo "$korean_text" | sed 's/\brevenue\b/매출/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bprofit\b/이익/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bgains\b/상승/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bfalls\b/하락/g')
+          korean_text=$(echo "$korean_text" | sed 's/\brises\b/상승/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bdrops\b/하락/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bsurges\b/급등/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bplunges\b/급락/g')
+          korean_text=$(echo "$korean_text" | sed 's/\binvestment\b/투자/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bmarket\b/시장/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bcompany\b/회사/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bquarter\b/분기/g')
+          korean_text=$(echo "$korean_text" | sed 's/\banalyst\b/애널리스트/g')
+          korean_text=$(echo "$korean_text" | sed 's/\btarget\b/목표가/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bupgrade\b/상향조정/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bdowngrade\b/하향조정/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bbuy\b/매수/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bsell\b/매도/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bhold\b/보유/g')
+          
+          # 회사별 특수 용어
+          korean_text=$(echo "$korean_text" | sed 's/\bTesla\b/테슬라/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bPalantir\b/팔란티어/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bMarvell\b/마벨/g')
+          korean_text=$(echo "$korean_text" | sed 's/\belectric vehicle\b/전기차/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bEV\b/전기차/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bautonomous\b/자율주행/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bAI\b/AI/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bartificial intelligence\b/인공지능/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bbitcoin\b/비트코인/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bcryptocurrency\b/암호화폐/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bblockchain\b/블록체인/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bquantum\b/양자/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bcloud\b/클라우드/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bsemiconductor\b/반도체/g')
+          korean_text=$(echo "$korean_text" | sed 's/\bchip\b/칩/g')
+          
+          echo "$korean_text"
+        }
+        
+        # 네이버 뉴스 확인 (한국 종목)
+        naver_news=$(curl -s "https://news.google.com/rss/search?q=NAVER+Korea+stock+네이버+주식" | head -20)
+        naver_title=$(echo "$naver_news" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g')
+        
+        if [ ! -z "$naver_title" ] && [ "$naver_title" != "" ] && [ "$naver_title" != "Google News" ]; then
+          # 네이버 뉴스는 한국어면 그대로, 영어면 번역
+          if echo "$naver_title" | grep -q '[가-힣]'; then
+            translated_title="$naver_title"
+          else
+            translated_title=$(translate_to_korean "$naver_title")
+          fi
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.CHAT_ID }}" \
+            -d "text=🇰🇷 NAVER (035420) 최신 뉴스
+
+          📰 ${translated_title}
+
+          🔗 뉴스 링크: https://news.google.com/search?q=NAVER+Korea
+          📊 주가 확인: https://finance.yahoo.com/quote/035420.KS
+
+          📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+        fi
+        
+        # 미국 종목들 뉴스 확인 및 번역
+        for symbol in "${!stocks[@]}"; do
+          company_name="${stocks[$symbol]}"
+          echo "뉴스 확인 및 번역 중: $symbol ($company_name)"
+          
+          # Google News에서 영어 뉴스 검색
+          news_data=$(curl -s "https://news.google.com/rss/search?q=${symbol}+${company_name// /+}+stock+news" | head -20)
+          
+          # 최신 뉴스 제목 추출
+          english_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g')
+          
+          if [ ! -z "$english_title" ] && [ "$english_title" != "" ] && [ "$english_title" != "Google News" ]; then
+            echo "영어 뉴스 발견: $symbol - $english_title"
+            
+            # 한국어로 번역
+            korean_title=$(translate_to_korean "$english_title")
+            
+            # 해당 뉴스 직접 링크 (Google 검색 결과)
+            news_link="https://news.google.com/search?q=${symbol}+${company_name// /+}+stock"
+            
+            # 종목별 이모지
+            case "$symbol" in
+              "TSLA") emoji="🚗" ;;
+              "PLTR") emoji="🔍" ;;
+              "MRVL") emoji="💎" ;;
+              "BTM") emoji="₿" ;;
+              "GLXY") emoji="🌌" ;;
+              "OSCR") emoji="🏥" ;;
+              "OKLO") emoji="⚛️" ;;
+              "AEVA") emoji="📡" ;;
+              "NBIS") emoji="🔬" ;;
+              "ARQQ") emoji="⚛️" ;;
+              "CRCL") emoji="🌐" ;;
+              "CRWV") emoji="☁️" ;;
+              *) emoji="📈" ;;
+            esac
+            
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+              -d "chat_id=${{ secrets.CHAT_ID }}" \
+              -d "text=${emoji} ${symbol} (${company_name}) 최신 뉴스
+
+            📰 ${korean_title}
+
+            🔗 뉴스 링크: ${news_link}
+            📊 주가 확인: https://finance.yahoo.com/quote/${symbol}
+
+            📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+            
+            sleep 3
+          else
+            echo "새로운 뉴스 없음: $symbol"
+          fi
+          
+          sleep 1
+        done
+        
+        echo "모든 종목 뉴스 확인 및 번역 완료"
+
+    - name: Send Translation Summary
+      run: |
+        sleep 5
+        
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=📈 오늘의 주요 종목 기술적 분석
+          -d "text=📊 종목 뉴스 모니터링 완료
 
-        🔍 지지/저항 및 과매도/과매수 분석:
+        ✅ 확인 완료된 종목들:
+        🌐 CRCL, 🏥 OSCR, ⚛️ ARQQ, ₿ BTM
+        ☁️ CRWV, 🇰🇷 NAVER, 🌌 GLXY, 🔬 NBIS
+        🚗 TSLA, ⚛️ OKLO, 💎 MRVL, 🔍 PLTR, 📡 AEVA
 
-        🌐 CRCL (써클 인터넷): 
-        • 지지: 실시간 차트 확인 필요
-        • 저항: TradingView에서 확인
-        • RSI: 과매도/과매수 상태 체크
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
+        ⏰ 다음 확인: 3시간 후
 
-        🏥 OSCR (오스카 헬스):
-        • 지지/저항: 차트 패턴 분석 필요
-        • 볼린저 밴드: 변동성 확인
-
-        ⚛️ ARQQ (아킷 퀀텀):
-        • 기술적 지표: 소량 거래로 신중 접근
-
-        ₿ BTM (비트코인 디포):
-        • 비트코인 연동성: BTC 차트 함께 분석
-
-        🌐 CRWV (코어위브):
-        • 클라우드 섹터 모멘텀 확인
-
-        🇰🇷 NAVER (035420):
-        • 한국 시장 지지/저항선 분석
-
-        🌌 GLXY (갤럭시 디지털):
-        • 암호화폐 시장 연동성 체크
-
-        🔬 NBIS (네비우스 그룹):
-        • 바이오 섹터 기술적 분석
-
-        🚗 TSLA (테슬라):
-        • 주요 지지선: $200, $180
-        • 저항선: $250, $280
-        • RSI/MACD 모멘텀 확인
-
-        ⚛️ OKLO (오클로):
-        • 에너지 섹터 기술적 패턴
-
-        💎 MRVL (마벨):
-        • 반도체 섹터 지지/저항
-        • AI 관련주 모멘텀
-
-        🔍 PLTR (팔란티어):
-        • 소프트웨어주 기술적 분석
-        • 정부 계약 뉴스 임팩트
-
-        📡 AEVA (에바):
-        • 자율주행 섹터 변동성 체크
-
-        🔗 상세 기술적 분석:
-        📊 TradingView: https://www.tradingview.com
-        📈 야후 파이낸스: https://finance.yahoo.com
-
-        📅 ${current_time}
-        
-        💡 참고: 실제 투자 결정은 개별 차트 분석 후 신중하게 하세요."
-
-        sleep 3
-
-        # 추가 시장 요약
-        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-          -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=📊 시장 기술적 분석 체크리스트
-
-        ✅ 오늘 확인할 기술적 지표:
-
-        📈 주요 지지/저항선:
-        • S&P 500: 주요 이동평균선
-        • NASDAQ: 기술주 모멘텀
-        • 개별 종목: 피보나치 되돌림
-
-        📉 과매도/과매수 확인:
-        • RSI (14일): 30 이하(과매도), 70 이상(과매수)
-        • 스토캐스틱: %K, %D 라인 교차점
-        • MACD: 시그널 라인 돌파 여부
-
-        🔄 볼륨 분석:
-        • 거래량 증가 패턴
-        • 가격 상승 시 볼륨 확인
-        • 돌파 구간 거래량 체크
-
-        💡 오늘의 핵심:
-        각 종목별 차트를 직접 확인하여
-        개인적인 진입/청산 시점을 
-        기술적 분석으로 판단하세요!
-
-        📅 ${current_time}"
+        💡 새로운 뉴스가 있을 때만 한국어 번역과 함께 알림"
