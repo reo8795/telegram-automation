@@ -258,4 +258,3 @@ jobs:
           -d "text=${message}"
         
         echo "✅ 뉴스 요약 전송 완료"
- 
