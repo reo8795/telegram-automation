@@ -1,148 +1,30 @@
-name: Fully Automated System
+name: Simple Link Only System
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 22 * * *'      # 매일 07:00 KST (공포탐욕지수)
+    - cron: '0 22 * * *'      # 매일 07:00 KST (공포탐욕지수 링크)
     - cron: '0 */3 * * *'     # 3시간마다 (종목 뉴스)
 
 jobs:
-  # 매일 아침 7시 - 완전 자동화 공포탐욕지수
-  fully-automated-fear-greed:
+  # 매일 아침 7시 - 공포탐욕지수 링크만
+  morning-fear-greed-link:
     runs-on: ubuntu-latest
     if: github.event.schedule == '0 22 * * *' || github.event_name == 'workflow_dispatch'
     
     steps:
-    - name: Auto Fear Greed with Web Scraping
+    - name: Send CNN Fear Greed Link Only
       run: |
-        echo "완전 자동화 공포탐욕지수 시작"
+        echo "공포탐욕지수 링크 전송"
         
-        # 1. CNN 웹페이지에서 직접 스크래핑 시도
-        echo "CNN 웹페이지 스크래핑 시도"
-        cnn_page=$(curl -s "https://www.cnn.com/markets/fear-and-greed" || echo "")
-        
-        if [ ! -z "$cnn_page" ]; then
-          # 웹페이지에서 지수 추출 시도
-          fear_score=$(echo "$cnn_page" | grep -o 'Fear & Greed.*[0-9][0-9]' | grep -o '[0-9][0-9]' | head -1)
-          fear_text=$(echo "$cnn_page" | grep -o 'Extreme Fear\|Fear\|Neutral\|Greed\|Extreme Greed' | head -1)
-          
-          if [ ! -z "$fear_score" ] && [ "$fear_score" -ge 0 ] && [ "$fear_score" -le 100 ]; then
-            echo "✅ CNN 웹 스크래핑 성공: $fear_score ($fear_text)"
-          else
-            fear_score=""
-            fear_text=""
-          fi
-        fi
-        
-        # 2. 대체 방법들 순차 시도
-        if [ -z "$fear_score" ]; then
-          echo "대체 방법 1: RapidAPI 시도"
-          rapid_response=$(curl -s "https://fear-and-greed-index.p.rapidapi.com/v1/fgi" \
-            -H "X-RapidAPI-Key: demo" \
-            -H "X-RapidAPI-Host: fear-and-greed-index.p.rapidapi.com" || echo "")
-          
-          if [ ! -z "$rapid_response" ] && echo "$rapid_response" | grep -q "fgi"; then
-            fear_score=$(echo "$rapid_response" | grep -o '"now":[0-9]*' | cut -d':' -f2)
-            fear_text=$(echo "$rapid_response" | grep -o '"now_class":"[^"]*' | cut -d'"' -f4)
-            echo "✅ RapidAPI 성공: $fear_score ($fear_text)"
-          fi
-        fi
-        
-        # 3. 마지막 대체: 추정 계산
-        if [ -z "$fear_score" ]; then
-          echo "추정 계산 방법 사용"
-          
-          # VIX 지수 기반 추정
-          vix_data=$(curl -s "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX" || echo "")
-          if [ ! -z "$vix_data" ]; then
-            vix_value=$(echo "$vix_data" | grep -o '"regularMarketPrice":[0-9.]*' | head -1 | cut -d':' -f2)
-            
-            if [ ! -z "$vix_value" ]; then
-              # VIX를 공포탐욕지수로 변환 (역관계)
-              if (( $(echo "$vix_value > 30" | bc -l) )); then
-                fear_score="20"
-                fear_text="Extreme Fear"
-              elif (( $(echo "$vix_value > 25" | bc -l) )); then
-                fear_score="35"
-                fear_text="Fear"
-              elif (( $(echo "$vix_value > 20" | bc -l) )); then
-                fear_score="50"
-                fear_text="Neutral"
-              elif (( $(echo "$vix_value > 15" | bc -l) )); then
-                fear_score="65"
-                fear_text="Greed"
-              else
-                fear_score="80"
-                fear_text="Extreme Greed"
-              fi
-              echo "✅ VIX 기반 추정: $fear_score ($fear_text, VIX: $vix_value)"
-            fi
-          fi
-        fi
-        
-        # 4. 최종 백업 (날짜 기반 패턴)
-        if [ -z "$fear_score" ]; then
-          echo "최종 백업 방법 사용"
-          day_of_year=$(date '+%j')
-          base_score=$(( (day_of_year % 60) + 20 ))  # 20-80 범위
-          
-          # 주식시장 패턴 반영 (주말 조정)
-          day_of_week=$(date '+%u')
-          if [ "$day_of_week" -eq 1 ]; then  # 월요일은 약간 낮게
-            fear_score=$(( base_score - 5 ))
-          elif [ "$day_of_week" -eq 5 ]; then  # 금요일은 약간 높게
-            fear_score=$(( base_score + 5 ))
-          else
-            fear_score=$base_score
-          fi
-          
-          # 범위 조정
-          if [ "$fear_score" -lt 0 ]; then fear_score=20; fi
-          if [ "$fear_score" -gt 100 ]; then fear_score=80; fi
-          
-          # 상태 결정
-          if [ "$fear_score" -le 24 ]; then
-            fear_text="Extreme Fear"
-          elif [ "$fear_score" -le 49 ]; then
-            fear_text="Fear"
-          elif [ "$fear_score" -le 74 ]; then
-            fear_text="Greed"
-          else
-            fear_text="Extreme Greed"
-          fi
-          
-          echo "✅ 패턴 기반 추정: $fear_score ($fear_text)"
-        fi
-        
-        # 한글 번역
-        case "$fear_text" in
-          "Extreme Fear") korean_rating="극도의 공포" ;;
-          "Fear") korean_rating="공포" ;;
-          "Neutral") korean_rating="중립" ;;
-          "Greed") korean_rating="탐욕" ;;
-          "Extreme Greed") korean_rating="극도의 탐욕" ;;
-          *) korean_rating="중립" ;;
-        esac
-        
-        # 이모지 선택
-        if [ "$fear_score" -le 24 ]; then
-          emoji="😱"
-        elif [ "$fear_score" -le 49 ]; then
-          emoji="😰"
-        elif [ "$fear_score" -le 74 ]; then
-          emoji="🤑"
-        else
-          emoji="🤯"
-        fi
-        
-        # 최종 메시지 전송
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=${emoji} 미국 주식 공포탐욕지수
+          -d "text=📊 오늘의 미국 주식 공포탐욕지수
 
-        📊 현재 지수: ${fear_score}/100 (${korean_rating})
+        🔗 CNN 공포탐욕지수 확인:
+        https://www.cnn.com/markets/fear-and-greed
 
-        💡 투자 가이드:
+        💡 간단 가이드:
         😱 0-24: 극도의 공포 (매수 기회)
         😰 25-49: 공포 (신중한 매수)
         🤑 50-74: 탐욕 (신중한 매도)
@@ -150,23 +32,17 @@ jobs:
 
         📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 07:00 KST')
 
-        🔗 정확한 지수 확인:
-        📊 CNN: https://www.cnn.com/markets/fear-and-greed
-        📈 TradingView: https://www.tradingview.com/markets/stocks-usa/market-movers-overview/
+        ✅ 위 링크에서 정확한 지수와 차트를 확인하세요"
 
-        🤖 자동 수집된 데이터입니다"
-        
-        echo "공포탐욕지수 자동 전송 완료: ${fear_score}/100 (${korean_rating})"
-
-  # 3시간마다 - 종목 뉴스 자동 번역
-  auto-translated-news:
+  # 3시간마다 - 종목 뉴스 (기존과 동일)
+  korean-translated-news:
     runs-on: ubuntu-latest
     if: github.event.schedule == '0 */3 * * *' || github.event_name == 'workflow_dispatch'
     
     steps:
-    - name: Auto News Translation
+    - name: Get News and Translate to Korean
       run: |
-        echo "자동 뉴스 번역 시작"
+        echo "종목 뉴스 확인 및 한국어 번역 시작"
         
         # 종목 리스트
         declare -A stocks=(
