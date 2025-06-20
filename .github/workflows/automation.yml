@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 22 * * *'
+    - cron: '0 */4 * * *'
 
 jobs:
   send-telegram:
@@ -14,18 +15,18 @@ jobs:
       run: |
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=🤖 GitHub Actions Test
+          -d "text=🤖 GitHub Actions 자동화 테스트
 
-        ✅ System is working!
+        ✅ 시스템이 정상 작동 중입니다!
         
-        📊 Features:
-        • Daily Fear Greed Index at 07:00 KST
-        • Stock info every 4 hours
-        • Auto scheduling
+        📊 설정된 기능:
+        • 매일 07시 공포탐욕지수 알림
+        • 4시간마다 주식 정보
+        • 자동 스케줄링 실행
         
-        🕐 Current time: $(date)
+        🕐 현재 시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
         
-        🚀 All systems go!"
+        🚀 모든 시스템 정상!"
 
     - name: Send Fear Greed Index
       run: |
@@ -37,6 +38,16 @@ jobs:
           value="50"
           classification="Neutral"
         fi
+        
+        # 한글 상태로 변환
+        case "$classification" in
+          "Extreme Fear") korean_status="극도의 공포" ;;
+          "Fear") korean_status="공포" ;;
+          "Neutral") korean_status="중립" ;;
+          "Greed") korean_status="탐욕" ;;
+          "Extreme Greed") korean_status="극도의 탐욕" ;;
+          *) korean_status="$classification" ;;
+        esac
         
         if [ "$value" -le 24 ]; then
           emoji="😱"
@@ -50,42 +61,84 @@ jobs:
         
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=${emoji} Fear and Greed Index
+          -d "text=${emoji} 오늘의 공포탐욕지수
 
-        Current Index: ${value}/100
-        Status: ${classification}
+        현재 지수: ${value}/100
+        상태: ${korean_status}
         
-        💡 Index Guide:
-        0-24: Extreme Fear 😱
-        25-49: Fear 😰
-        50-74: Greed 🤑
-        75-100: Extreme Greed 🤯
+        💡 지수 해석:
+        0-24: 극도의 공포 😱 (매수 기회)
+        25-49: 공포 😰 (신중한 매수)
+        50-74: 탐욕 🤑 (신중한 매도)  
+        75-100: 극도의 탐욕 🤯 (매도 고려)
         
-        📅 Time: $(date)
-        📊 Source: Alternative.me"
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
+        📊 데이터 제공: Alternative.me"
 
-    - name: Send Stock Info
+    - name: Send Apple Stock
       run: |
+        sleep 2
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=📱 AAPL Stock Info
+          -d "text=📱 AAPL (애플) 주식 정보
 
-        💰 Live Data:
-        📈 Yahoo Finance: https://finance.yahoo.com/quote/AAPL
-        📊 TradingView: https://www.tradingview.com/symbols/AAPL
-        📰 News: https://finance.yahoo.com/quote/AAPL/news
+        💰 실시간 데이터 확인:
+        📈 야후 파이낸스: https://finance.yahoo.com/quote/AAPL
+        📊 트레이딩뷰: https://www.tradingview.com/symbols/AAPL
+        📰 뉴스: https://finance.yahoo.com/quote/AAPL/news
+        🔍 구글 뉴스: https://news.google.com/search?q=AAPL+Apple+stock
         
-        📅 Time: $(date)"
-        
-        sleep 3
-        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send Tesla Stock  
+      run: |
+        sleep 2
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=🚗 TSLA Stock Info
+          -d "text=🚗 TSLA (테슬라) 주식 정보
 
-        💰 Live Data:
-        📈 Yahoo Finance: https://finance.yahoo.com/quote/TSLA
-        📊 TradingView: https://www.tradingview.com/symbols/TSLA
-        📰 News: https://finance.yahoo.com/quote/TSLA/news
+        💰 실시간 데이터 확인:
+        📈 야후 파이낸스: https://finance.yahoo.com/quote/TSLA
+        📊 트레이딩뷰: https://www.tradingview.com/symbols/TSLA
+        📰 뉴스: https://finance.yahoo.com/quote/TSLA/news
+        🔍 구글 뉴스: https://news.google.com/search?q=TSLA+Tesla+stock
         
-        📅 Time: $(date)"
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send NVIDIA Stock
+      run: |
+        sleep 2
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🎮 NVDA (엔비디아) 주식 정보
+
+        💰 실시간 데이터 확인:
+        📈 야후 파이낸스: https://finance.yahoo.com/quote/NVDA
+        📊 트레이딩뷰: https://www.tradingview.com/symbols/NVDA
+        📰 뉴스: https://finance.yahoo.com/quote/NVDA/news
+        🔍 구글 뉴스: https://news.google.com/search?q=NVDA+NVIDIA+stock
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send Market Summary
+      run: |
+        sleep 2
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=📊 시장 요약 정보
+
+        🔥 주요 체크 포인트:
+        • 미국 증시 동향 및 지수 현황
+        • 연준(Fed) 금리 정책 뉴스
+        • 주요 기업 실적 발표 일정
+        • 국제 경제 이슈 및 영향
+
+        📈 유용한 사이트:
+        🌐 야후 파이낸스: https://finance.yahoo.com
+        📺 CNBC: https://www.cnbc.com/markets
+        📊 마켓워치: https://www.marketwatch.com
+        📰 CNN 비즈니스: https://edition.cnn.com/business
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
+        
+        ⏰ 다음 업데이트: 4시간 후"
