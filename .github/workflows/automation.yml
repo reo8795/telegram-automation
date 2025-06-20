@@ -125,3 +125,4 @@ jobs:
           -d "text=${message2}"
         
         echo "✅ 주식 정보 전송 완료"
+
