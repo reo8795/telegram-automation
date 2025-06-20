@@ -1,40 +1,33 @@
-name: 텔레그램 자동 알림
+name: Telegram Auto Alert
 
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 22 * * *'
-    - cron: '0 */4 * * *'
 
 jobs:
-  telegram-alerts:
+  send-telegram:
     runs-on: ubuntu-latest
     
     steps:
     - name: Send Test Message
-      env:
-        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        CHAT_ID: ${{ secrets.CHAT_ID }}
       run: |
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=🤖 GitHub Actions 자동화 테스트
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🤖 GitHub Actions Test
 
-        ✅ 시스템이 정상 작동 중입니다!
+        ✅ System is working!
         
-        📊 설정된 기능:
-        • 매일 07시 공포탐욕지수 알림
-        • 4시간마다 주식 정보
-        • 자동 스케줄링 실행
+        📊 Features:
+        • Daily Fear Greed Index at 07:00 KST
+        • Stock info every 4 hours
+        • Auto scheduling
         
-        🕐 현재 시간: $(date '+%Y-%m-%d %H:%M KST')
+        🕐 Current time: $(date)
         
-        🚀 모든 시스템 정상!"
+        🚀 All systems go!"
 
     - name: Send Fear Greed Index
-      env:
-        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        CHAT_ID: ${{ secrets.CHAT_ID }}
       run: |
         response=$(curl -s "https://api.alternative.me/fng/")
         value=$(echo "$response" | grep -o '"value":"[^"]*' | head -1 | cut -d'"' -f4)
@@ -55,49 +48,44 @@ jobs:
           emoji="🤯"
         fi
         
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${emoji} 오늘의 공포탐욕지수
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=${emoji} Fear and Greed Index
 
-        현재 지수: ${value}/100
-        상태: ${classification}
+        Current Index: ${value}/100
+        Status: ${classification}
         
-        💡 지수 해석:
-        0-24: 극도의 공포 😱
-        25-49: 공포 😰
-        50-74: 탐욕 🤑
-        75-100: 극도의 탐욕 🤯
+        💡 Index Guide:
+        0-24: Extreme Fear 😱
+        25-49: Fear 😰
+        50-74: Greed 🤑
+        75-100: Extreme Greed 🤯
         
-        📅 $(date '+%Y-%m-%d %H:%M KST')
-        📊 데이터: Alternative.me"
+        📅 Time: $(date)
+        📊 Source: Alternative.me"
 
     - name: Send Stock Info
-      env:
-        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        CHAT_ID: ${{ secrets.CHAT_ID }}
       run: |
-        current_time=$(date '+%Y-%m-%d %H:%M KST')
-        
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=📱 AAPL (Apple) 주식 정보
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=📱 AAPL Stock Info
 
-        💰 실시간 정보 확인:
+        💰 Live Data:
         📈 Yahoo Finance: https://finance.yahoo.com/quote/AAPL
         📊 TradingView: https://www.tradingview.com/symbols/AAPL
-        📰 뉴스: https://finance.yahoo.com/quote/AAPL/news
+        📰 News: https://finance.yahoo.com/quote/AAPL/news
         
-        📅 ${current_time}"
+        📅 Time: $(date)"
         
         sleep 3
         
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=🚗 TSLA (Tesla) 주식 정보
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🚗 TSLA Stock Info
 
-        💰 실시간 정보 확인:
+        💰 Live Data:
         📈 Yahoo Finance: https://finance.yahoo.com/quote/TSLA
         📊 TradingView: https://www.tradingview.com/symbols/TSLA
-        📰 뉴스: https://finance.yahoo.com/quote/TSLA/news
+        📰 News: https://finance.yahoo.com/quote/TSLA/news
         
-        📅 ${current_time}"
+        📅 Time: $(date)"
