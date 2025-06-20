@@ -2,8 +2,8 @@ name: 텔레그램 자동 알림
 
 on:
   schedule:
-    - cron: '0 22 * * *'  # 매일 한국시간 07시
-    - cron: '0 */4 * * *'  # 4시간마다
+    - cron: '0 22 * * *'
+    - cron: '0 */4 * * *'
   workflow_dispatch:
 
 env:
@@ -11,118 +11,108 @@ env:
   CHAT_ID: ${{ secrets.CHAT_ID }}
 
 jobs:
-  send-messages:
+  send-all-messages:
     runs-on: ubuntu-latest
     
     steps:
-    - name: 테스트 메시지 전송
+    - name: 시스템 테스트 메시지
       run: |
-        echo "🤖 테스트 메시지 전송 시작"
+        echo "시작: 테스트 메시지 전송"
         
-        current_time=$(date '+%Y-%m-%d %H:%M KST')
-        
-        message="🤖 GitHub Actions 자동화 테스트
+        MESSAGE="🤖 GitHub Actions 자동화 테스트
 
 ✅ 시스템이 정상 작동 중입니다!
 
 📊 설정된 기능:
-• 매일 07시 공포탐욕지수 알림
+• 매일 07시 공포탐욕지수 알림  
 • 4시간마다 주식 정보
 • 자동 스케줄링 실행
 
-🕐 현재 시간: ${current_time}
+🕐 현재 시간: $(date '+%Y-%m-%d %H:%M KST')
 
 🚀 모든 시스템 정상 작동!"
         
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${message}"
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=${MESSAGE}"
         
-        echo "✅ 테스트 메시지 전송 완료"
-    
+        echo "완료: 테스트 메시지 전송"
+
     - name: 공포탐욕지수 전송
       run: |
-        echo "📊 공포탐욕지수 가져오기"
+        echo "시작: 공포탐욕지수 수집"
         
-        response=$(curl -s "https://api.alternative.me/fng/")
+        RESPONSE=$(curl -s "https://api.alternative.me/fng/")
+        VALUE=$(echo "$RESPONSE" | grep -o '"value":"[^"]*' | head -1 | cut -d'"' -f4)
+        CLASS=$(echo "$RESPONSE" | grep -o '"value_classification":"[^"]*' | head -1 | cut -d'"' -f4)
         
-        value=$(echo "$response" | grep -o '"value":"[^"]*' | head -1 | cut -d'"' -f4)
-        classification=$(echo "$response" | grep -o '"value_classification":"[^"]*' | head -1 | cut -d'"' -f4)
-        
-        if [ -z "$value" ]; then
-          value="50"
-          classification="Neutral"
+        if [ -z "$VALUE" ]; then
+          VALUE="50"
+          CLASS="Neutral"
         fi
         
-        if [ "$value" -le 24 ]; then
-          emoji="😱"
-        elif [ "$value" -le 49 ]; then
-          emoji="😰"
-        elif [ "$value" -le 74 ]; then
-          emoji="🤑"
+        if [ "$VALUE" -le 24 ]; then
+          EMOJI="😱"
+        elif [ "$VALUE" -le 49 ]; then
+          EMOJI="😰"  
+        elif [ "$VALUE" -le 74 ]; then
+          EMOJI="🤑"
         else
-          emoji="🤯"
+          EMOJI="🤯"
         fi
         
-        current_time=$(date '+%Y-%m-%d %H:%M KST')
-        
-        message="${emoji} 오늘의 공포탐욕지수
+        MESSAGE="${EMOJI} 오늘의 공포탐욕지수
 
-현재 지수: ${value}/100
-상태: ${classification}
+현재 지수: ${VALUE}/100
+상태: ${CLASS}
 
 💡 지수 해석:
 0-24: 극도의 공포 😱
 25-49: 공포 😰
-50-74: 탐욕 🤑
+50-74: 탐욕 🤑  
 75-100: 극도의 탐욕 🤯
 
-📅 ${current_time}
+📅 $(date '+%Y-%m-%d %H:%M KST')
 📊 데이터: Alternative.me"
         
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${message}"
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=${MESSAGE}"
         
-        echo "✅ 공포탐욕지수 전송 완료"
-    
+        echo "완료: 공포탐욕지수 전송"
+
     - name: 주식 정보 전송
       run: |
-        echo "📈 주식 정보 전송"
+        echo "시작: 주식 정보 전송"
         
-        current_time=$(date '+%Y-%m-%d %H:%M KST')
+        CURRENT_TIME=$(date '+%Y-%m-%d %H:%M KST')
         
-        # AAPL 정보
-        message1="📱 AAPL (Apple) 주식 정보
+        MESSAGE1="📱 AAPL (Apple) 주식 정보
 
-💰 실시간 차트와 정보는 아래 링크에서 확인하세요:
-
+💰 실시간 정보 확인:
 📈 Yahoo Finance: https://finance.yahoo.com/quote/AAPL
-📊 TradingView: https://www.tradingview.com/symbols/AAPL
+📊 TradingView: https://www.tradingview.com/symbols/AAPL  
 📰 뉴스: https://finance.yahoo.com/quote/AAPL/news
 
-📅 ${current_time}"
+📅 ${CURRENT_TIME}"
         
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${message1}"
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=${MESSAGE1}"
         
         sleep 2
         
-        # TSLA 정보
-        message2="🚗 TSLA (Tesla) 주식 정보
+        MESSAGE2="🚗 TSLA (Tesla) 주식 정보
 
-💰 실시간 차트와 정보는 아래 링크에서 확인하세요:
-
+💰 실시간 정보 확인:
 📈 Yahoo Finance: https://finance.yahoo.com/quote/TSLA
 📊 TradingView: https://www.tradingview.com/symbols/TSLA
 📰 뉴스: https://finance.yahoo.com/quote/TSLA/news
 
-📅 ${current_time}"
+📅 ${CURRENT_TIME}"
         
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${message2}"
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=${MESSAGE2}"
         
-        echo "✅ 주식 정보 전송 완료"
-
+        echo "완료: 주식 정보 전송"
