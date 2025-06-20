@@ -1,14 +1,9 @@
-# .github/workflows/automation.yml
 name: 텔레그램 자동 알림
 
 on:
   schedule:
-    # 매일 오전 7시 (한국시간) - UTC로는 오후 10시
-    - cron: '0 22 * * *'
-    # 4시간마다 종목 체크
-    - cron: '0 */4 * * *'
-  
-  # 수동으로도 실행 가능하게 (테스트용)
+    - cron: '0 22 * * *'  # 매일 한국시간 07시
+    - cron: '0 */4 * * *'  # 4시간마다
   workflow_dispatch:
 
 env:
@@ -16,33 +11,49 @@ env:
   CHAT_ID: ${{ secrets.CHAT_ID }}
 
 jobs:
-  # 작업 1: 공포탐욕지수 전송 (매일 7시)
-  send-fear-greed:
+  send-messages:
     runs-on: ubuntu-latest
     
     steps:
-    - name: 공포탐욕지수 가져오기 및 전송
+    - name: 테스트 메시지 전송
       run: |
-        echo "🚀 공포탐욕지수 작업 시작"
+        echo "🤖 테스트 메시지 전송 시작"
         
-        # API에서 데이터 가져오기
+        current_time=$(date '+%Y-%m-%d %H:%M KST')
+        
+        message="🤖 GitHub Actions 자동화 테스트
+
+✅ 시스템이 정상 작동 중입니다!
+
+📊 설정된 기능:
+• 매일 07시 공포탐욕지수 알림
+• 4시간마다 주식 정보
+• 자동 스케줄링 실행
+
+🕐 현재 시간: ${current_time}
+
+🚀 모든 시스템 정상 작동!"
+        
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "text=${message}"
+        
+        echo "✅ 테스트 메시지 전송 완료"
+    
+    - name: 공포탐욕지수 전송
+      run: |
+        echo "📊 공포탐욕지수 가져오기"
+        
         response=$(curl -s "https://api.alternative.me/fng/")
-        echo "API 응답 확인됨"
         
-        # 필요한 정보 추출 (간단한 방법 사용)
         value=$(echo "$response" | grep -o '"value":"[^"]*' | head -1 | cut -d'"' -f4)
         classification=$(echo "$response" | grep -o '"value_classification":"[^"]*' | head -1 | cut -d'"' -f4)
         
-        echo "지수: $value"
-        echo "분류: $classification"
-        
-        # 기본값 설정 (데이터 없을 경우)
         if [ -z "$value" ]; then
           value="50"
           classification="Neutral"
         fi
         
-        # 이모지 선택
         if [ "$value" -le 24 ]; then
           emoji="😱"
         elif [ "$value" -le 49 ]; then
@@ -53,208 +64,64 @@ jobs:
           emoji="🤯"
         fi
         
-        # 현재 시간 (한국 시간)
-        current_time=$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
+        current_time=$(date '+%Y-%m-%d %H:%M KST')
         
-        # 메시지 구성
         message="${emoji} 오늘의 공포탐욕지수
 
 현재 지수: ${value}/100
 상태: ${classification}
 
 💡 지수 해석:
-0-24: 극도의 공포 😱 (매수 기회)
-25-49: 공포 😰 (신중한 매수)
-50-74: 탐욕 🤑 (신중한 매도)
-75-100: 극도의 탐욕 🤯 (매도 고려)
+0-24: 극도의 공포 😱
+25-49: 공포 😰
+50-74: 탐욕 🤑
+75-100: 극도의 탐욕 🤯
 
 📅 ${current_time}
 📊 데이터: Alternative.me"
         
-        # URL 인코딩을 위한 간단한 치환
-        encoded_message=$(echo "$message" | sed 's/ /%20/g' | sed 's/\n/%0A/g' | sed 's/:/:%/g')
-        
-        # 텔레그램으로 전송
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${message}" \
-          -d "parse_mode=HTML"
-        
-        echo "✅ 공포탐욕지수 전송 완료"
-
-  # 작업 2: 애플 주식 정보
-  send-apple-stock:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: AAPL 주식 정보 전송
-      run: |
-        echo "📱 AAPL 주식 정보 수집 시작"
-        
-        # 간단한 방법으로 주식 정보 가져오기
-        # Yahoo Finance 대신 간단한 API 사용
-        current_time=$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
-        
-        # Alpha Vantage demo API 시도
-        stock_response=$(curl -s "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=demo")
-        
-        # 가격 정보 추출 (간단한 방법)
-        price=$(echo "$stock_response" | grep -o '"05. price": "[^"]*' | cut -d'"' -f4)
-        change=$(echo "$stock_response" | grep -o '"09. change": "[^"]*' | cut -d'"' -f4)
-        change_percent=$(echo "$stock_response" | grep -o '"10. change percent": "[^"]*' | cut -d'"' -f4)
-        
-        # 기본값 설정 (API 실패 시)
-        if [ -z "$price" ]; then
-          price="195.00"
-          change="+1.50"
-          change_percent="+0.77%"
-        fi
-        
-        # 상승/하락 이모지 (간단한 방법)
-        if [[ "$change" == +* ]]; then
-          trend_emoji="📈"
-        else
-          trend_emoji="📉"
-        fi
-        
-        # 메시지 구성
-        message="📱 AAPL (Apple) 주식 정보
-
-💰 현재가: \$${price}
-📊 변동: ${change} (${change_percent}) ${trend_emoji}
-
-📈 차트: https://finance.yahoo.com/chart/AAPL
-📰 뉴스: https://finance.yahoo.com/quote/AAPL/news
-
-📅 ${current_time}"
-        
-        # 텔레그램 전송
         curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
           -d "chat_id=${CHAT_ID}" \
           -d "text=${message}"
         
-        echo "✅ AAPL 정보 전송 완료"
-
-  # 작업 3: 테슬라 주식 정보
-  send-tesla-stock:
-    runs-on: ubuntu-latest
+        echo "✅ 공포탐욕지수 전송 완료"
     
-    steps:
-    - name: TSLA 주식 정보 전송
+    - name: 주식 정보 전송
       run: |
-        echo "🚗 TSLA 주식 정보 수집 시작"
+        echo "📈 주식 정보 전송"
         
-        # 3초 대기 (API 부하 방지)
-        sleep 3
+        current_time=$(date '+%Y-%m-%d %H:%M KST')
         
-        current_time=$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
-        
-        # TSLA 정보 시도
-        stock_response=$(curl -s "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=TSLA&apikey=demo")
-        
-        price=$(echo "$stock_response" | grep -o '"05. price": "[^"]*' | cut -d'"' -f4)
-        change=$(echo "$stock_response" | grep -o '"09. change": "[^"]*' | cut -d'"' -f4)
-        change_percent=$(echo "$stock_response" | grep -o '"10. change percent": "[^"]*' | cut -d'"' -f4)
-        
-        # 기본값 설정
-        if [ -z "$price" ]; then
-          price="245.00"
-          change="-2.30"
-          change_percent="-0.93%"
-        fi
-        
-        if [[ "$change" == +* ]]; then
-          trend_emoji="📈"
-        else
-          trend_emoji="📉"
-        fi
-        
-        message="🚗 TSLA (Tesla) 주식 정보
+        # AAPL 정보
+        message1="📱 AAPL (Apple) 주식 정보
 
-💰 현재가: \$${price}
-📊 변동: ${change} (${change_percent}) ${trend_emoji}
+💰 실시간 차트와 정보는 아래 링크에서 확인하세요:
 
-📈 차트: https://finance.yahoo.com/chart/TSLA
+📈 Yahoo Finance: https://finance.yahoo.com/quote/AAPL
+📊 TradingView: https://www.tradingview.com/symbols/AAPL
+📰 뉴스: https://finance.yahoo.com/quote/AAPL/news
+
+📅 ${current_time}"
+        
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "text=${message1}"
+        
+        sleep 2
+        
+        # TSLA 정보
+        message2="🚗 TSLA (Tesla) 주식 정보
+
+💰 실시간 차트와 정보는 아래 링크에서 확인하세요:
+
+📈 Yahoo Finance: https://finance.yahoo.com/quote/TSLA
+📊 TradingView: https://www.tradingview.com/symbols/TSLA
 📰 뉴스: https://finance.yahoo.com/quote/TSLA/news
 
 📅 ${current_time}"
         
         curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
           -d "chat_id=${CHAT_ID}" \
-          -d "text=${message}"
+          -d "text=${message2}"
         
-        echo "✅ TSLA 정보 전송 완료"
-
-  # 작업 4: 테스트 메시지 (수동 실행시에만)
-  send-test-message:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    
-    steps:
-    - name: 테스트 메시지 전송
-      run: |
-        echo "🧪 테스트 메시지 전송 중..."
-        
-        current_time=$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
-        utc_time=$(date '+%Y-%m-%d %H:%M UTC')
-        
-        message="🤖 GitHub Actions 자동화 테스트
-
-✅ 시스템이 정상 작동 중입니다!
-
-📊 설정된 기능:
-• 매일 07시 공포탐욕지수 알림
-• 4시간마다 주식 정보 (AAPL, TSLA)
-• 자동 스케줄링 실행
-
-🕐 현재 시간:
-• 한국: ${current_time}
-• UTC: ${utc_time}
-
-🚀 모든 시스템 정상 작동!"
-        
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${message}"
-        
-        echo "✅ 테스트 메시지 전송 완료"
-
-  # 작업 5: 경제 뉴스 요약 (보너스)
-  send-market-news:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    
-    steps:
-    - name: 시장 뉴스 요약 전송
-      run: |
-        echo "📰 시장 뉴스 수집 중..."
-        
-        current_time=$(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
-        
-        # 간단한 시장 상황 메시지
-        message="📰 오늘의 시장 뉴스 요약
-
-🔍 주요 체크 포인트:
-• 미국 증시 동향
-• 연준 금리 정책
-• 주요 기업 실적 발표
-• 국제 경제 이슈
-
-📊 관심 종목:
-• AAPL - Apple Inc.
-• TSLA - Tesla Inc.
-• NVDA - NVIDIA Corp.
-• MSFT - Microsoft Corp.
-
-🔗 상세 뉴스:
-• Yahoo Finance: https://finance.yahoo.com
-• MarketWatch: https://marketwatch.com
-• CNN Business: https://cnn.com/business
-
-📅 ${current_time}"
-        
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-          -d "chat_id=${CHAT_ID}" \
-          -d "text=${message}"
-        
-        echo "✅ 뉴스 요약 전송 완료"
+        echo "✅ 주식 정보 전송 완료"
