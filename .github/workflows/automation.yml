@@ -20,125 +20,384 @@ jobs:
         ✅ 시스템이 정상 작동 중입니다!
         
         📊 설정된 기능:
-        • 매일 07시 공포탐욕지수 알림
-        • 4시간마다 주식 정보
+        • 매일 07시 CNN 미국 주식 공포탐욕지수
+        • 4시간마다 주요 종목 분석
         • 자동 스케줄링 실행
         
         🕐 현재 시간: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M KST')
         
         🚀 모든 시스템 정상!"
 
-    - name: Send Fear Greed Index
+    - name: Send CNN Fear Greed Index with Image
       run: |
-        response=$(curl -s "https://api.alternative.me/fng/")
-        value=$(echo "$response" | grep -o '"value":"[^"]*' | head -1 | cut -d'"' -f4)
-        classification=$(echo "$response" | grep -o '"value_classification":"[^"]*' | head -1 | cut -d'"' -f4)
-        
-        if [ -z "$value" ]; then
-          value="50"
-          classification="Neutral"
-        fi
-        
-        # 한글 상태로 변환
-        case "$classification" in
-          "Extreme Fear") korean_status="극도의 공포" ;;
-          "Fear") korean_status="공포" ;;
-          "Neutral") korean_status="중립" ;;
-          "Greed") korean_status="탐욕" ;;
-          "Extreme Greed") korean_status="극도의 탐욕" ;;
-          *) korean_status="$classification" ;;
-        esac
-        
-        if [ "$value" -le 24 ]; then
-          emoji="😱"
-        elif [ "$value" -le 49 ]; then
-          emoji="😰"
-        elif [ "$value" -le 74 ]; then
-          emoji="🤑"
-        else
-          emoji="🤯"
-        fi
-        
-        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-          -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=${emoji} 오늘의 공포탐욕지수
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendPhoto" \
+          -F "chat_id=${{ secrets.CHAT_ID }}" \
+          -F "photo=https://production.dataviz.cnn.io/index/fearandgreed/chart" \
+          -F "caption=📊 CNN 미국 주식시장 공포탐욕지수
 
-        현재 지수: ${value}/100
-        상태: ${korean_status}
+        🇺🇸 미국 주식시장 심리 분석
         
         💡 지수 해석:
         0-24: 극도의 공포 😱 (매수 기회)
         25-49: 공포 😰 (신중한 매수)
-        50-74: 탐욕 🤑 (신중한 매도)  
+        50-74: 탐욕 🤑 (신중한 매도)
         75-100: 극도의 탐욕 🤯 (매도 고려)
         
+        📈 CNN 공포탐욕지수는 다음 7가지 지표를 종합:
+        • 주식 가격 모멘텀
+        • 주식 가격 강도 
+        • 주식 가격 폭
+        • 풋/콜 옵션 비율
+        • 시장 변동성 (VIX)
+        • 안전자산 수요
+        • 정크본드 수요
+        
         📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
-        📊 데이터 제공: Alternative.me"
+        📊 데이터: CNN Markets"
 
-    - name: Send Apple Stock
+    - name: Send CRCL Stock Analysis
       run: |
-        sleep 2
+        sleep 3
+        news_data=$(curl -s "https://news.google.com/rss/search?q=Circle+Internet+CRCL+stock" | head -20)
+        news_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g' | head -c 100)
+        
+        if [ -z "$news_title" ]; then
+          news_title="써클 인터넷 그룹 관련 최신 뉴스를 확인해보세요"
+        fi
+        
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=📱 AAPL (애플) 주식 정보
+          -d "text=🌐 써클 인터넷 그룹 (CRCL) 종목 분석
 
-        💰 실시간 데이터 확인:
-        📈 야후 파이낸스: https://finance.yahoo.com/quote/AAPL
-        📊 트레이딩뷰: https://www.tradingview.com/symbols/AAPL
-        📰 뉴스: https://finance.yahoo.com/quote/AAPL/news
-        🔍 구글 뉴스: https://news.google.com/search?q=AAPL+Apple+stock
+        📊 차트 분석:
+        • 인터넷 인프라 및 서비스 회사
+        • 디지털 플랫폼 및 웹 솔루션
+        • 클라우드 기반 인터넷 서비스
+
+        📰 최신 뉴스:
+        ${news_title}...
+
+        💡 투자 포인트:
+        • 인터넷 인프라 성장 분야
+        • 디지털 서비스 확장
+        • 클라우드 전환 수혜
         
         📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
 
-    - name: Send Tesla Stock  
+    - name: Send OSCR Stock Analysis
       run: |
-        sleep 2
+        sleep 3
+        news_data=$(curl -s "https://news.google.com/rss/search?q=Oscar+Health+OSCR+stock" | head -20)
+        news_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g' | head -c 100)
+        
+        if [ -z "$news_title" ]; then
+          news_title="오스카 헬스 관련 최신 뉴스를 확인해보세요"
+        fi
+        
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=🚗 TSLA (테슬라) 주식 정보
+          -d "text=🏥 오스카 헬스 (OSCR) 종목 분석
 
-        💰 실시간 데이터 확인:
-        📈 야후 파이낸스: https://finance.yahoo.com/quote/TSLA
-        📊 트레이딩뷰: https://www.tradingview.com/symbols/TSLA
-        📰 뉴스: https://finance.yahoo.com/quote/TSLA/news
-        🔍 구글 뉴스: https://news.google.com/search?q=TSLA+Tesla+stock
+        📊 차트 분석:
+        • 디지털 헬스케어 보험 회사
+        • AI 기반 의료 서비스 플랫폼
+        • 개인 맞춤형 건강보험 서비스
+
+        📰 최신 뉴스:
+        ${news_title}...
+
+        💡 투자 포인트:
+        • 디지털 헬스케어 혁신 리더
+        • AI 의료 서비스 확장
+        • 헬스테크 성장 수혜
         
         📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
 
-    - name: Send NVIDIA Stock
+    - name: Send ARQQ Stock Analysis
       run: |
-        sleep 2
+        sleep 3
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=🎮 NVDA (엔비디아) 주식 정보
+          -d "text=⚛️ 아킷 퀀텀 (ARQQ) 종목 분석
 
-        💰 실시간 데이터 확인:
-        📈 야후 파이낸스: https://finance.yahoo.com/quote/NVDA
-        📊 트레이딩뷰: https://www.tradingview.com/symbols/NVDA
-        📰 뉴스: https://finance.yahoo.com/quote/NVDA/news
-        🔍 구글 뉴스: https://news.google.com/search?q=NVDA+NVIDIA+stock
+        📊 차트 분석:
+        • 양자 컴퓨팅 기술 회사
+        • 양자 소프트웨어 및 하드웨어 개발
+        • 차세대 컴퓨팅 솔루션
+
+        💡 투자 포인트:
+        • 양자 컴퓨팅 선도 기업
+        • 미래 기술 혁신 분야
+        • 정부 및 기업 파트너십
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send BTM Stock Analysis
+      run: |
+        sleep 3
+        news_data=$(curl -s "https://news.google.com/rss/search?q=Bitcoin+Depot+BTM+cryptocurrency" | head -20)
+        news_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g' | head -c 100)
+        
+        if [ -z "$news_title" ]; then
+          news_title="비트코인 디포 관련 최신 뉴스를 확인해보세요"
+        fi
+        
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=₿ 비트코인 디포 (BTM) 종목 분석
+
+        📊 차트 분석:
+        • 세계 최대 비트코인 ATM 네트워크
+        • 암호화폐 접근성 확대 서비스
+        • 디지털 자산 거래 플랫폼
+
+        📰 최신 뉴스:
+        ${news_title}...
+
+        💡 투자 포인트:
+        • 비트코인 ATM 시장 선도
+        • 암호화폐 대중화 수혜
+        • 디지털 결제 인프라 확장
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send CRWV Stock Analysis
+      run: |
+        sleep 3
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🌐 코어위브 (CRWV) 종목 분석
+
+        📊 차트 분석:
+        • 클라우드 데이터센터 및 인프라
+        • 엔터프라이즈 클라우드 서비스
+        • 고성능 컴퓨팅 솔루션
+
+        💡 투자 포인트:
+        • 클라우드 인프라 성장
+        • 데이터센터 수요 증가
+        • 디지털 전환 가속화
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send NAVER Stock Analysis
+      run: |
+        sleep 3
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🇰🇷 네이버 (035420) 종목 분석
+
+        📊 차트 분석:
+        • 한국 대표 IT 플랫폼 기업
+        • 검색, 커머스, 핀테크 통합 서비스
+        • 글로벌 IT 서비스 확장
+
+        💡 투자 포인트:
+        • 국내 검색 시장 독점
+        • 네이버페이 핀테크 성장
+        • 쇼핑라이브 커머스 확대
+        • 네이버클라우드 B2B 성장
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send GLXY Stock Analysis
+      run: |
+        sleep 3
+        news_data=$(curl -s "https://news.google.com/rss/search?q=Galaxy+Digital+GLXY+bitcoin" | head -20)
+        news_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g' | head -c 100)
+        
+        if [ -z "$news_title" ]; then
+          news_title="갤럭시 디지털 관련 최신 뉴스를 확인해보세요"
+        fi
+        
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🌌 갤럭시 디지털 (GLXY) 종목 분석
+
+        📊 차트 분석:
+        • 디지털 자산 투자 및 관리 회사
+        • 암호화폐 거래 및 마이닝
+        • 블록체인 기술 투자
+
+        📰 최신 뉴스:
+        ${news_title}...
+
+        💡 투자 포인트:
+        • 기관 암호화폐 투자 선도
+        • 비트코인 ETF 수혜
+        • 디지털 자산 관리 전문
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send NBIS Stock Analysis
+      run: |
+        sleep 3
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🔬 네비우스 그룹 (NBIS) 종목 분석
+
+        📊 차트 분석:
+        • 바이오사이언스 및 의료기기
+        • 생명과학 연구 및 개발
+        • 의료 진단 솔루션
+
+        💡 투자 포인트:
+        • 바이오 의료기기 성장
+        • 정밀 의학 발전
+        • 헬스케어 혁신 기술
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send TSLA Stock Analysis
+      run: |
+        sleep 3
+        news_data=$(curl -s "https://news.google.com/rss/search?q=Tesla+TSLA+electric+vehicle" | head -20)
+        news_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g' | head -c 100)
+        
+        if [ -z "$news_title" ]; then
+          news_title="테슬라 관련 최신 뉴스를 확인해보세요"
+        fi
+        
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🚗 테슬라 (TSLA) 종목 분석
+
+        📊 차트 분석:
+        • 전기차 및 에너지 저장 시스템
+        • 자율주행 기술 및 FSD
+        • 태양광 에너지 솔루션
+
+        📰 최신 뉴스:
+        ${news_title}...
+
+        💡 투자 포인트:
+        • 전기차 시장 선도
+        • 자율주행 기술 혁신
+        • 에너지 사업 확장
+        • 로보택시 서비스 출시
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send OKLO Stock Analysis
+      run: |
+        sleep 3
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=⚛️ 오클로 (OKLO) 종목 분석
+
+        📊 차트 분석:
+        • 소형 모듈형 원자로 (SMR) 개발
+        • 청정 에너지 원자력 기술
+        • 차세대 원자력 발전
+
+        💡 투자 포인트:
+        • SMR 기술 선도 기업
+        • 청정 에너지 전환 수혜
+        • 원자력 르네상스 기대
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send MRVL Stock Analysis
+      run: |
+        sleep 3
+        news_data=$(curl -s "https://news.google.com/rss/search?q=Marvell+Technology+MRVL+AI+chip" | head -20)
+        news_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g' | head -c 100)
+        
+        if [ -z "$news_title" ]; then
+          news_title="마벨 테크놀로지 관련 최신 뉴스를 확인해보세요"
+        fi
+        
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=💎 마벨 테크놀로지 (MRVL) 종목 분석
+
+        📊 차트 분석:
+        • 데이터 인프라 반도체 설계
+        • AI 및 클라우드 데이터센터 칩
+        • 5G 및 자동차 반도체
+
+        📰 최신 뉴스:
+        ${news_title}...
+
+        💡 투자 포인트:
+        • AI 데이터센터 칩 수요 급증
+        • 5G 인프라 확산
+        • 자동차 전장화 가속
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send PLTR Stock Analysis
+      run: |
+        sleep 3
+        news_data=$(curl -s "https://news.google.com/rss/search?q=Palantir+PLTR+AI+software" | head -20)
+        news_title=$(echo "$news_data" | grep -o '<title><!\[CDATA\[.*\]\]></title>' | head -2 | tail -1 | sed 's/<title><!\[CDATA\[//g' | sed 's/\]\]><\/title>//g' | head -c 100)
+        
+        if [ -z "$news_title" ]; then
+          news_title="팔란티어 관련 최신 뉴스를 확인해보세요"
+        fi
+        
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🔍 팔란티어 (PLTR) 종목 분석
+
+        📊 차트 분석:
+        • 빅데이터 분석 및 AI 소프트웨어
+        • 정부 및 기업 데이터 플랫폼
+        • 국방 및 보안 솔루션
+
+        📰 최신 뉴스:
+        ${news_title}...
+
+        💡 투자 포인트:
+        • AI 소프트웨어 시장 선도
+        • 정부 계약 안정적 수주
+        • 기업 AI 솔루션 확산
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
+
+    - name: Send AEVA Stock Analysis
+      run: |
+        sleep 3
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=📡 에바 테크놀로지스 (AEVA) 종목 분석
+
+        📊 차트 분석:
+        • 차세대 LiDAR 센서 기술
+        • 자율주행차 핵심 부품
+        • 4D LiDAR 혁신 기술
+
+        💡 투자 포인트:
+        • 자율주행 센서 시장 성장
+        • LiDAR 기술 혁신 리더
+        • OEM 파트너십 확대
         
         📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')"
 
     - name: Send Market Summary
       run: |
-        sleep 2
+        sleep 3
         curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
           -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=📊 시장 요약 정보
+          -d "text=📊 포트폴리오 종합 분석
 
-        🔥 주요 체크 포인트:
-        • 미국 증시 동향 및 지수 현황
-        • 연준(Fed) 금리 정책 뉴스
-        • 주요 기업 실적 발표 일정
-        • 국제 경제 이슈 및 영향
+        🔥 오늘의 섹터별 체크 포인트:
+        • 🌐 인터넷/클라우드: CRCL, CRWV
+        • 🏥 헬스케어: OSCR, NBIS
+        • ⚛️ 첨단기술: ARQQ, OKLO
+        • ₿ 암호화폐: BTM, GLXY
+        • 🇰🇷 한국IT: NAVER
+        • 🚗 모빌리티: TSLA, AEVA
+        • 💎 반도체: MRVL
+        • 🔍 AI소프트웨어: PLTR
 
-        📈 유용한 사이트:
-        🌐 야후 파이낸스: https://finance.yahoo.com
-        📺 CNBC: https://www.cnbc.com/markets
-        📊 마켓워치: https://www.marketwatch.com
-        📰 CNN 비즈니스: https://edition.cnn.com/business
+        📈 주요 투자 테마:
+        🤖 AI 혁명 → PLTR, MRVL
+        🚗 자율주행 → TSLA, AEVA
+        ⚛️ 에너지 전환 → OKLO, TSLA
+        ₿ 디지털 자산 → BTM, GLXY
+        🏥 헬스테크 → OSCR, NBIS
+        🌐 클라우드 → CRCL, CRWV
         
         📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
-        
         ⏰ 다음 업데이트: 4시간 후"
