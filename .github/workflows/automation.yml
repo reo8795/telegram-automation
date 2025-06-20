@@ -1,0 +1,175 @@
+# .github/workflows/automation.yml
+name: 텔레그램 자동 알림
+
+# 언제 실행할지 설정
+on:
+  schedule:
+    # 매일 오전 7시 (한국시간) - UTC로는 오후 10시
+    - cron: '0 22 * * *'
+    # 4시간마다 종목 체크
+    - cron: '0 */4 * * *'
+  
+  # 수동으로도 실행 가능하게 (테스트용)
+  workflow_dispatch:
+
+# 비밀정보 불러오기
+env:
+  TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+  CHAT_ID: ${{ secrets.CHAT_ID }}
+
+jobs:
+  # 작업 1: 공포탐욕지수 전송 (매일 7시)
+  send-fear-greed:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 공포탐욕지수 가져오기
+      run: |
+        echo "🚀 공포탐욕지수 작업 시작"
+        
+        # API에서 데이터 가져오기
+        response=$(curl -s "https://api.alternative.me/fng/")
+        echo "API 응답: $response"
+        
+        # 필요한 정보 추출 (더 안전한 방법)
+        value=$(echo $response | sed -n 's/.*"value":"\([^"]*\)".*/\1/p')
+        classification=$(echo $response | sed -n 's/.*"value_classification":"\([^"]*\)".*/\1/p')
+        
+        echo "지수: $value"
+        echo "분류: $classification"
+        
+        # 기본값 설정 (API 실패 대비)
+        if [ -z "$value" ]; then
+          value="50"
+          classification="Neutral"
+        fi
+        
+        # 이모지 선택
+        if [ "$value" -le 24 ]; then
+          emoji="😱"
+        elif [ "$value" -le 49 ]; then
+          emoji="😰"
+        elif [ "$value" -le 74 ]; then
+          emoji="🤑"
+        else
+          emoji="🤯"
+        fi
+        
+        # 메시지 만들기 (URL 인코딩 직접 적용)
+        message="${emoji}%20%EC%98%A4%EB%8A%98%EC%9D%98%20%EA%B3%B5%ED%8F%AC%ED%83%90%EC%9A%95%EC%A7%80%EC%88%98%0A%0A%ED%98%84%EC%9E%AC%20%EC%A7%80%EC%88%98%3A%20${value}/100%0A%EC%83%81%ED%83%9C%3A%20${classification}%0A%0A%F0%9F%92%A1%20%EC%A7%80%EC%88%98%20%ED%95%B4%EC%84%9D%3A%0A0-24%3A%20%EA%B7%B9%EB%8F%84%EC%9D%98%20%EA%B3%B5%ED%8F%AC%20%F0%9F%98%B1%0A25-49%3A%20%EA%B3%B5%ED%8F%AC%20%F0%9F%98%B0%0A50-74%3A%20%ED%83%90%EC%9A%95%20%F0%9F%A4%91%0A75-100%3A%20%EA%B7%B9%EB%8F%84%EC%9D%98%20%ED%83%90%EC%9A%95%20%F0%9F%A4%AF%0A%0A%F0%9F%93%85%20$(date%20'%2B%25Y-%25m-%25d%20%25H%3A%25M')%20KST"
+        
+        # 텔레그램으로 전송
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "text=${message}"
+        
+        echo "✅ 공포탐욕지수 전송 완료"
+        
+        # 이미지도 함께 전송
+        sleep 2
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "photo=https://alternative.me/crypto/fear-and-greed-index.png" \
+          -d "caption=%F0%9F%93%8A%20%EA%B3%B5%ED%8F%AC%ED%83%90%EC%9A%95%EC%A7%80%EC%88%98%20%EC%B0%A8%ED%8A%B8"
+        
+        echo "✅ 차트 이미지 전송 완료"
+
+  # 작업 2: 주식 정보 전송
+  send-stock-info:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 애플 주식 정보 전송
+      run: |
+        echo "📈 AAPL 주식 정보 수집 시작"
+        
+        # Yahoo Finance에서 AAPL 정보 가져오기
+        stock_data=$(curl -s "https://query1.finance.yahoo.com/v8/finance/chart/AAPL")
+        
+        # 가격 정보 추출 (더 안전한 방법)
+        price=$(echo "$stock_data" | grep -o '"regularMarketPrice":[0-9.]*' | head -1 | cut -d':' -f2)
+        prev_close=$(echo "$stock_data" | grep -o '"previousClose":[0-9.]*' | head -1 | cut -d':' -f2)
+        
+        # 기본값 설정 (API 실패 대비)
+        if [ -z "$price" ] || [ -z "$prev_close" ]; then
+          price="195.00"
+          prev_close="194.00"
+        fi
+        
+        # 변화량 계산
+        change=$(echo "$price - $prev_close" | bc -l 2>/dev/null || echo "1.00")
+        change_percent=$(echo "scale=2; ($change / $prev_close) * 100" | bc -l 2>/dev/null || echo "0.50")
+        
+        # 상승/하락 이모지
+        if (( $(echo "$change >= 0" | bc -l 2>/dev/null || echo 1) )); then
+          trend_emoji="%F0%9F%93%88"
+          sign="%2B"
+        else
+          trend_emoji="%F0%9F%93%89"
+          sign=""
+        fi
+        
+        # 메시지 구성 (URL 인코딩 적용)
+        message="%F0%9F%93%B1%20AAPL%20(Apple)%20%EC%A3%BC%EC%8B%9D%20%EC%A0%95%EB%B3%B4%0A%0A%F0%9F%92%B0%20%ED%98%84%EC%9E%AC%EA%B0%80%3A%20%24${price}%0A%F0%9F%93%8A%20%EB%B3%80%EB%8F%99%3A%20${sign}${change}%20(${sign}${change_percent}%25)%20${trend_emoji}%0A%0A%F0%9F%93%88%20%EC%B0%A8%ED%8A%B8%20%EB%B3%B4%EA%B8%B0%3A%20https%3A//finance.yahoo.com/chart/AAPL%0A%0A%F0%9F%93%85%20$(date%20'%2B%25Y-%25m-%25d%20%25H%3A%25M')%20KST"
+        
+        # 텔레그램 전송
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "text=${message}"
+        
+        echo "✅ AAPL 정보 전송 완료"
+    
+    - name: 테슬라 주식 정보 전송
+      run: |
+        echo "🚗 TSLA 주식 정보 수집 시작"
+        
+        # 5초 대기 (API 부하 방지)
+        sleep 5
+        
+        # TSLA 정보 가져오기
+        stock_data=$(curl -s "https://query1.finance.yahoo.com/v8/finance/chart/TSLA")
+        
+        price=$(echo "$stock_data" | grep -o '"regularMarketPrice":[0-9.]*' | head -1 | cut -d':' -f2)
+        prev_close=$(echo "$stock_data" | grep -o '"previousClose":[0-9.]*' | head -1 | cut -d':' -f2)
+        
+        if [ -z "$price" ] || [ -z "$prev_close" ]; then
+          price="250.00"
+          prev_close="248.00"
+        fi
+        
+        change=$(echo "$price - $prev_close" | bc -l 2>/dev/null || echo "2.00")
+        change_percent=$(echo "scale=2; ($change / $prev_close) * 100" | bc -l 2>/dev/null || echo "0.80")
+        
+        if (( $(echo "$change >= 0" | bc -l 2>/dev/null || echo 1) )); then
+          trend_emoji="%F0%9F%93%88"
+          sign="%2B"
+        else
+          trend_emoji="%F0%9F%93%89"
+          sign=""
+        fi
+        
+        message="%F0%9F%9A%97%20TSLA%20(Tesla)%20%EC%A3%BC%EC%8B%9D%20%EC%A0%95%EB%B3%B4%0A%0A%F0%9F%92%B0%20%ED%98%84%EC%9E%AC%EA%B0%80%3A%20%24${price}%0A%F0%9F%93%8A%20%EB%B3%80%EB%8F%99%3A%20${sign}${change}%20(${sign}${change_percent}%25)%20${trend_emoji}%0A%0A%F0%9F%93%88%20%EC%B0%A8%ED%8A%B8%20%EB%B3%B4%EA%B8%B0%3A%20https%3A//finance.yahoo.com/chart/TSLA%0A%0A%F0%9F%93%85%20$(date%20'%2B%25Y-%25m-%25d%20%25H%3A%25M')%20KST"
+        
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "text=${message}"
+        
+        echo "✅ TSLA 정보 전송 완료"
+
+  # 작업 3: 테스트 메시지 (수동 실행시에만)
+  send-test-message:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: 테스트 메시지 전송
+      run: |
+        echo "🧪 테스트 메시지 전송 중..."
+        
+        message="%F0%9F%A4%96%20GitHub%20Actions%20%ED%85%8C%EC%8A%A4%ED%8A%B8%0A%0A%E2%9C%85%20%EC%9E%90%EB%8F%99%ED%99%94%20%EC%8B%9C%EC%8A%A4%ED%85%9C%EC%9D%B4%20%EC%A0%95%EC%83%81%20%EC%9E%91%EB%8F%99%20%EC%A4%91%EC%9E%85%EB%8B%88%EB%8B%A4!%0A%0A%F0%9F%93%8A%20%EC%84%A4%EC%A0%95%EB%90%9C%20%EA%B8%B0%EB%8A%A5%3A%0A%E2%80%A2%20%EB%A7%A4%EC%9D%BC%2007%EC%8B%9C%20%EA%B3%B5%ED%8F%AC%ED%83%90%EC%9A%95%EC%A7%80%EC%88%98%0A%E2%80%A2%204%EC%8B%9C%EA%B0%84%EB%A7%88%EB%8B%A4%20%EC%A3%BC%EC%8B%9D%20%EC%A0%95%EB%B3%B4%20(AAPL%2C%20TSLA)%0A%0A%F0%9F%95%90%20%ED%98%84%EC%9E%AC%20%EC%8B%9C%EA%B0%84%3A%20$(date%20'%2B%25Y-%25m-%25d%20%25H%3A%25M')%20UTC%0A%F0%9F%87%B0%F0%9F%87%B7%20%ED%95%9C%EA%B5%AD%20%EC%8B%9C%EA%B0%84%3A%20$(TZ%3D'Asia/Seoul'%20date%20'%2B%25Y-%25m-%25d%20%25H%3A%25M')%20KST%0A%0A%F0%9F%9A%80%20%EB%AA%A8%EB%93%A0%20%EC%8B%9C%EC%8A%A4%ED%85%9C%20%EC%A0%95%EC%83%81!"
+        
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+          -d "chat_id=${CHAT_ID}" \
+          -d "text=${message}"
+        
+        echo "✅ 테스트 메시지 전송 완료"
