@@ -1,0 +1,96 @@
+name: Fear Greed Index Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-fear-greed-image:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Send CNN Fear Greed Index Image Test
+      run: |
+        echo "공포탐욕지수 이미지 테스트 시작"
+        
+        # CNN 공포탐욕지수 이미지 전송 테스트
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendPhoto" \
+          -F "chat_id=${{ secrets.CHAT_ID }}" \
+          -F "photo=https://production.dataviz.cnn.io/index/fearandgreed/chart" \
+          -F "caption=📊 CNN 미국 주식시장 공포탐욕지수 테스트
+
+        🇺🇸 미국 주식시장 심리 분석
+        
+        💡 지수 해석:
+        0-24: 극도의 공포 😱 (매수 기회)
+        25-49: 공포 😰 (신중한 매수)
+        50-74: 탐욕 🤑 (신중한 매도)
+        75-100: 극도의 탐욕 🤯 (매도 고려)
+        
+        📈 CNN 공포탐욕지수는 다음 7가지 지표를 종합:
+        • 주식 가격 모멘텀
+        • 주식 가격 강도 
+        • 주식 가격 폭
+        • 풋/콜 옵션 비율
+        • 시장 변동성 (VIX)
+        • 안전자산 수요
+        • 정크본드 수요
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
+        📊 데이터: CNN Markets
+        
+        ✅ 이미지 테스트 완료!"
+        
+        echo "공포탐욕지수 이미지 테스트 완료"
+
+    - name: Alternative Image URL Test
+      run: |
+        echo "대체 이미지 URL 테스트 시작"
+        sleep 3
+        
+        # 만약 CNN 이미지가 안 되면 대체 이미지 테스트
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendPhoto" \
+          -F "chat_id=${{ secrets.CHAT_ID }}" \
+          -F "photo=https://alternative.me/crypto/fear-and-greed-index.png" \
+          -F "caption=📊 대체 공포탐욕지수 이미지 테스트
+
+        🔄 만약 CNN 이미지가 작동하지 않을 경우의 대체 이미지입니다.
+        
+        ⚠️ 이것은 암호화폐 공포탐욕지수이므로 실제 사용에서는 CNN 이미지를 사용해야 합니다.
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
+        
+        ✅ 대체 이미지 테스트 완료!"
+        
+        echo "대체 이미지 테스트 완료"
+
+    - name: Image URL Validation Test
+      run: |
+        echo "이미지 URL 유효성 검사 시작"
+        sleep 3
+        
+        # CNN 이미지 URL 직접 확인
+        cnn_response=$(curl -s -I "https://production.dataviz.cnn.io/index/fearandgreed/chart")
+        echo "CNN 이미지 URL 응답: $cnn_response"
+        
+        # 응답 코드 확인
+        if echo "$cnn_response" | grep -q "200 OK"; then
+          status="✅ CNN 이미지 URL 정상 작동"
+        else
+          status="❌ CNN 이미지 URL 문제 있음"
+        fi
+        
+        # 결과 메시지 전송
+        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=🔍 이미지 URL 검사 결과
+
+        📊 CNN 공포탐욕지수 이미지 URL:
+        https://production.dataviz.cnn.io/index/fearandgreed/chart
+        
+        ${status}
+        
+        📅 $(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H:%M KST')
+        
+        💡 참고: 이미지가 전송되지 않으면 텍스트로만 정보를 제공할 수 있습니다."
+        
+        echo "이미지 URL 검사 완료"
